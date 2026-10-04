@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4354ed">
+  <title>Y2Audio — YouTube to MP3 & MP4</title>
+  <meta name="description" content="Convert a YouTube link to MP3 audio or MP4 video. A simple, free converter for videos up to 10 minutes. No account required.">
+  <meta property="og:title" content="Y2Audio — A link. A format. Your file.">
+  <meta property="og:description" content="A simple YouTube to MP3 and MP4 converter. Free, with no account required.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/config.js" defer></script>
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <a class="skip-link" href="#converter">Skip to converter</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Y2Audio home"><img src="/favicon.svg" width="36" height="36" alt=""><span>Y2<span class="brand-light">Audio</span></span></a>
+    <nav aria-label="Main navigation"><a class="nav-active" href="#converter">Converter</a><a href="#how-it-works">How it works</a><a href="#questions">FAQs</a></nav>
+    <span class="header-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 12 3 3 7-7"/></svg>Free. No signup.</span>
+  </header>
+
+  <main>
+    <section class="workspace" aria-labelledby="main-title">
+      <div class="intro"><span class="eyebrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-8 12h6l-1 8 9-13h-7l1-7Z"/></svg> ONE LINK. TWO POSSIBILITIES.</span>
+        <h1 id="main-title">A link. A format. <span>Your file.</span></h1>
+        <p>Your YouTube-to-MP3 and MP4 converter. Simple as that.</p>
+      </div>
+
+      <div class="converter-card" id="converter">
+        <div class="converter-top"><h2>Let’s get your file</h2><span class="limit-chip">Up to 10 minutes</span></div>
+        <div class="format-tabs" role="group" aria-label="Download format">
+          <button class="format-tab selected" type="button" data-format="mp3" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="16" rx="3" ry="3"/></svg><span>Audio <small>MP3</small></span><span class="tab-check" aria-hidden="true">✓</span></button>
+          <button class="format-tab" type="button" data-format="mp4" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3Z"/></svg><span>Video <small>MP4</small></span><span class="tab-check" aria-hidden="true">✓</span></button>
+        </div>
+        <form id="converter-form" novalidate>
+          <label for="video-url" class="field-label">YouTube video link</label>
+          <div class="url-field" id="url-field"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4M8.5 15.5l-1 1a4.2 4.2 0 0 1-6-6l4-4a4.2 4.2 0 0 1 6 0m1 2 1-1a4.2 4.2 0 0 1 6 6l-4 4a4.2 4.2 0 0 1-6 0"/></svg><input id="video-url" name="url" type="url" inputmode="url" placeholder="Paste your YouTube link here" autocomplete="off" spellcheck="false" maxlength="2048" aria-describedby="link-help form-error" required><button id="paste-button" class="paste-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="4" width="8" height="4" rx="1"/><path d="M8 6H5v15h14V6h-3"/></svg><span>Paste</span></button></div>
+          <p id="link-help" class="field-help">YouTube videos and Shorts, up to 10 minutes long.</p>
+          <div id="form-error" class="message error-message" role="alert" hidden></div>
+          <div id="service-note" class="message service-note" role="status" hidden></div>
+
+          <section id="video-preview" class="video-preview" aria-label="Video preview" hidden><div class="thumbnail-wrap"><img id="video-thumbnail" alt="" referrerpolicy="no-referrer"><span id="video-duration" class="duration"></span></div><div class="video-info"><span class="video-source">YOUTUBE VIDEO</span><h3 id="video-title"></h3><p id="video-author"></p></div><button id="clear-video" class="icon-button" type="button" aria-label="Remove selected video">×</button></section>
+
+          <div class="conversion-controls"><div class="quality-field"><label for="quality">Audio quality</label><select id="quality" name="quality"><option value="192">192 kbps · Standard</option><option value="128">128 kbps · Smaller file</option></select></div><button id="convert-button" class="primary-button" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4h4M12 2v4M8 12l3 3 5-6"/><circle cx="12" cy="13" r="8"/></svg><span>Find video</span></button></div>
+          <p class="quality-note" id="quality-note">MP3 works with virtually any music player.</p>
+        </form>
+
+        <section id="job-panel" class="job-panel" aria-live="polite" hidden>
+          <div class="job-heading"><span class="job-icon" id="job-icon" aria-hidden="true">◌</span><div><h3 id="job-title">Your file is in the queue</h3><p id="job-description">We’ll start as soon as a conversion slot opens.</p></div></div>
+          <div class="progress-track" id="progress-track" role="progressbar" aria-label="Conversion progress" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill"></div></div>
+          <div class="job-meta"><span id="job-stage">Queued</span><span id="job-percent"></span></div>
+          <div class="job-actions"><a id="download-button" class="primary-button" hidden>Download file</a><button id="cancel-button" class="text-button" type="button">Cancel conversion</button><button id="restart-button" class="text-button" type="button" hidden>Convert another video</button></div>
+          <p id="expiry-note" class="expiry-note" hidden></p>
+        </section>
+        <div class="card-footer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v5c0 5-4 8-8 10-4-2-8-5-8-10V6l8-3Z"/><path d="m8 12 3 3 5-6"/></svg><span>No account. No installation. Just your download.</span></div>
+      </div>
+      <div class="quick-facts"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 12 3 3 7-7"/></svg>Always free to use</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 12 3 3 7-7"/></svg>Audio or video</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 12 3 3 7-7"/></svg>Made for any device</span></div>
+    </section>
+
+    <aside id="advertisement" class="ad-slot" aria-label="Advertisement" hidden><span>ADVERTISEMENT</span><div id="ad-content"></div></aside>
+
+    <section class="how-section content-width" id="how-it-works" aria-labelledby="how-title"><div class="section-heading"><span class="eyebrow">FROM LINK TO LISTENING</span><h2 id="how-title">Three steps. That’s it.</h2></div><div class="steps"><article><span class="step-number">01</span><h3>Copy your link</h3><p>Open a YouTube video, tap Share, and copy its link.</p></article><article><span class="step-number">02</span><h3>Make it yours</h3><p>Paste the link above. Choose MP3 for audio or MP4 for video.</p></article><article><span class="step-number">03</span><h3>Take it with you</h3><p>Convert and save your file. Your download stays available for 30 minutes.</p></article></div></section>
+
+    <section class="faq-section content-width" id="questions" aria-labelledby="faq-title"><div class="faq-intro"><span class="eyebrow">GOOD TO KNOW</span><h2 id="faq-title">A few answers<br>before you ask.</h2><p>Less figuring things out.<br>More pressing play.</p></div><div class="faq-list"><details><summary>Is Y2Audio free to use?<span aria-hidden="true">+</span></summary><p>Yes. You can convert supported videos without creating an account or paying a subscription. Usage limits help keep the service available for everyone.</p></details><details><summary>What’s the difference between MP3 and MP4?<span aria-hidden="true">+</span></summary><p>MP3 saves just the audio and usually makes a smaller file. MP4 saves both video and audio. Choose MP3 for listening or MP4 for watching.</p></details><details><summary>Which links and video lengths work?<span aria-hidden="true">+</span></summary><p>Use a link to a public YouTube video or Short up to 10 minutes long. Playlists, live streams, and videos that require signing in are not supported.</p></details><details><summary>What quality can I download?<span aria-hidden="true">+</span></summary><p>Choose 128 or 192 kbps for MP3, or up to 360p or 720p for MP4. Available video quality depends on the source. Converting cannot improve the original recording’s quality.</p></details><details><summary>How long is my download available?<span aria-hidden="true">+</span></summary><p>Your link expires 30 minutes after conversion finishes. Temporary files are automatically deleted. Save the file to your device before the link expires.</p></details></div></section>
+  </main>
+  <footer class="site-footer content-width"><div><a class="brand footer-brand" href="/"><img src="/favicon.svg" width="28" height="28" alt=""><span>Y2<span class="brand-light">Audio</span></span></a><p>A little less friction. A little more play.</p></div><div class="footer-right"><span>Independent tool · Not affiliated with YouTube</span><span>Use with content you own or have permission to download.</span></div></footer>
+  <noscript><p class="message">Enable JavaScript to use the converter.</p></noscript>
+</body>
+</html>

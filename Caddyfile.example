@@ -1,0 +1,9 @@
+# Run Caddy on the host after pointing your purchased domain at the server.
+# The app is only bound to localhost in compose.yaml.
+y2audio.com {
+    encode zstd gzip
+    request_body {
+        max_size 8KB
+    }
+    reverse_proxy 127.0.0.1:8000
+}

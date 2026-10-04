@@ -1,0 +1,38 @@
+services:
+  converter:
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - conversion-data:/data
+    environment:
+      CONVERSION_WORKERS: ${CONVERSION_WORKERS:-2}
+      QUEUE_LIMIT: ${QUEUE_LIMIT:-12}
+      MAX_DURATION_SECONDS: ${MAX_DURATION_SECONDS:-600}
+      RETENTION_SECONDS: ${RETENTION_SECONDS:-1800}
+      MAX_JOB_MB: ${MAX_JOB_MB:-250}
+      MAX_STORAGE_MB: ${MAX_STORAGE_MB:-2048}
+      MONTHLY_DOWNLOAD_GB: ${MONTHLY_DOWNLOAD_GB:-300}
+      DAILY_JOB_LIMIT: ${DAILY_JOB_LIMIT:-100}
+      JOBS_PER_IP_PER_HOUR: ${JOBS_PER_IP_PER_HOUR:-6}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      FORWARDED_ALLOW_IPS: ${TRUSTED_PROXY_IPS:-127.0.0.1}
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+volumes:
+  conversion-data:

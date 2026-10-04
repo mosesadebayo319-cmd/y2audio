@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.runtime/
+.env
+node_modules/
+artifacts/
+*.tar.gz
+.DS_Store
