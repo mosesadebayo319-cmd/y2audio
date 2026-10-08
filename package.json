@@ -1,0 +1,14 @@
+{
+  "name": "y2audio-vercel-runtime",
+  "private": true,
+  "engines": { "node": "24.x" },
+  "dependencies": {
+    "ffmpeg-static": "5.2.0",
+    "ffprobe-static": "3.1.0",
+    "node": "24.10.0"
+  },
+  "scripts": {
+    "prevercel-build": "node scripts/prepare-vercel.js",
+    "vercel-build": "node scripts/verify-vercel.js"
+  }
+}

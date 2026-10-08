@@ -6,11 +6,12 @@ A mobile-friendly YouTube-to-MP3/MP4 beta, with a real Python media-processing s
 
 - Responsive converter, clipboard paste, video preview, format/quality selection, queue progress, cancellation, downloads, refresh recovery, and FAQs are implemented.
 - The backend invokes **yt-dlp, Node.js, FFmpeg, and FFprobe**. It does not substitute sample media in production.
+- A Vercel deployment path now uses Upstash Redis for shared job state and private Vercel Blob for temporary outputs. Conversions run in bounded serverless requests; they do not use the local SQLite queue.
 - **25 backend tests passed**, including real FFmpeg-generated MP3/MP4 files, expiry, cancellation, restart recovery, request validation, and quota enforcement.
 - A browser test completed both format flows and downloaded real generated files. It also checked invalid links, reload recovery, FAQs, 390/320-pixel layouts, and JavaScript errors. The test replaces only the YouTube network boundary; it is excluded from deployment.
 - The production Docker image built successfully and passed startup checks with its read-only filesystem, non-root user, and resource limits. The container served the website and reported Node/FFmpeg/FFprobe available.
 - Live YouTube extraction **could not be verified**: this workspace's outbound proxy returned `403 Forbidden` for YouTube requests. This is not evidence that a chosen production host can retrieve YouTube videos. Validate retrieval from that host before opening the public service.
-- The **Sites deployment is an interface preview**. Sites serves the static frontend and cannot run the Python/FFmpeg service. Until an HTTPS backend is configured, the preview clearly says conversion is not connected. It never simulates a completed download.
+- The **Sites deployment is an interface preview**. Sites serves the static frontend and cannot run the Python/FFmpeg service. The Vercel project is configured separately for the converter and must pass deployment health checks before it is treated as live.
 - No domain, paid server, or ad-network account has been purchased or activated. `y2audio.com` was available at $11.25 registration and $11.25 renewal in the domain lookup on October 4, 2026; it has not been reserved.
 
 ## Run locally
@@ -44,6 +45,14 @@ The container runs as a non-root user, with a read-only root filesystem, a writa
 
 The optional `proxy_ca` Docker build secret supports managed environments with an outbound TLS proxy. An ordinary server can build without the secret. The certificate is never copied into image layers. If the runtime host uses a TLS proxy, provide its trusted certificate through the host's standard runtime trust configuration.
 
+## Vercel deployment
+
+Vercel serves the frontend through its CDN and runs the FastAPI app as a function. The function bundles Node 24, FFmpeg, and FFprobe. Upstash Redis stores expiring previews and jobs, enforces quotas, and coordinates three conversion slots. Completed files go to a private Blob store and are streamed through an authenticated application route. The cleanup cron removes expired blobs every ten minutes.
+
+The linked Vercel project needs `BLOB_READ_WRITE_TOKEN`, `KV_REST_API_URL`, and `KV_REST_API_TOKEN` in each environment. The connected Blob and Upstash integrations provide these values. Set a strong `CRON_SECRET` for production, preview, and development so only Vercel Cron can run file cleanup. Do not commit `.env.local` or copy secrets into `dist/`.
+
+Deploy with `vercel deploy` for a preview and `vercel deploy --prod` after confirming `/api/health` reports `ready: true`. The health endpoint checks all three media executables, Redis connectivity, and the Blob token. Conversion requests are limited to three concurrent jobs, 100 jobs/day, and 100 GB/month of download delivery. Each function runs for at most 300 seconds; the media subprocess times out at 210 seconds. Vercel, Blob, and Upstash usage is still billed according to their current plans, so these application quotas are not a dollar-denominated billing cap.
+
 ### Separate frontend hosting
 
 If retaining the Sites interface:
@@ -62,23 +71,23 @@ Only public origin configuration belongs in `config.js`. No credentials belong i
 | Video duration | 600 seconds |
 | MP3 output | 128 or 192 kbps |
 | MP4 output | H.264/AAC, up to 360p or 720p when available |
-| Concurrent conversions | 2 |
-| Pending queue | 12 |
-| Video lookups | 20 per IP per hour; 2 simultaneous globally |
+| Concurrent conversions | 2 local / 3 on Vercel |
+| Pending queue | 12 local; Vercel jobs wait for a conversion slot |
+| Video lookups | 20 per IP per hour; 2 simultaneous globally locally / 1 per IP on Vercel |
 | New conversions | 6 per IP per hour; 2 active per IP |
 | Global daily conversions | 100 |
 | Downloads | 30 requests per IP per hour |
 | Per-job temporary storage | 250 MB, with each source limited to 125 MB |
 | Total reserved + used job storage | 2,048 MB |
-| Monthly download allowance | 300 GB |
-| Conversion timeout | 240 seconds |
+| Monthly download allowance | 100 GB on Vercel / 300 GB local |
+| Conversion timeout | 210 seconds on Vercel / 240 seconds local |
 | Metadata timeout | 40 seconds |
 | File retention | 30 minutes after completion |
-| Cleanup sweep | Every 30 seconds |
+| Cleanup sweep | Every 30 seconds local / 10 minutes on Vercel |
 
 These are **beta limits, not a capacity guarantee or dollar-based billing cap**. Download accounting reserves the whole file size for every request, including partial/retried requests. It deliberately overcounts rather than permitting unlimited retries. Configure the allowance below the chosen host's included transfer, leaving room for other traffic. Source retrieval, page traffic, and provider fees are outside this download counter.
 
-The agreed operating ceiling is **$100/month**. Plan approximately $50 for a server with included bandwidth, $10 for the domain allowance/basic monitoring, and retain $40 for contingencies. These are budget allocations, not vendor quotes. Choose the actual server only after testing YouTube access and conversion resource use there. Use provider billing alerts and any supported hard spending controls.
+The agreed operating ceiling is **$100/month**. That needs to cover Vercel Pro, Blob and Upstash usage, domain costs, and any future analytics or ads tooling. The per-day and per-month application quotas reduce traffic exposure but are not substitutes for checking vendor usage and billing controls.
 
 The monthly transfer counter and daily job counter persist across restarts. A restarted service fails interrupted jobs rather than silently spending resources retrying them.
 
@@ -92,14 +101,15 @@ The UI contains an advertisement slot, hidden until configured. No ad script, an
 | --- | --- |
 | `GET /api/health` | Required local executables are present; does not promise upstream availability |
 | `POST /api/preview` | `{ "url": "https://youtu.be/..." }` → expiring preview token and sanitized video metadata |
-| `POST /api/jobs` | `{ "preview_id": "...", "format": "mp3", "quality": 192 }` → job; repeated preview/options reuse the existing active/completed job |
+| `POST /api/jobs` | `{ "preview_id": "...", "format": "mp3", "quality": 192 }` → job; repeated preview/options reuse the existing job |
+| `POST /api/jobs/run` | `{ "job_id": "..." }` → starts or resumes the bounded conversion request |
 | `GET /api/jobs/:id` | Status, progress, expiry, and final size |
 | `DELETE /api/jobs/:id` | Cancel a queued/running job |
 | `GET /api/jobs/:id/download` | Attachment response, with expiry and transfer quota enforced |
 
 Only exact YouTube hostnames and validated 11-character video IDs are accepted. URL paths, options, file names, and arbitrary external hosts are never forwarded from user input. Process arguments are passed directly without shell execution. Preview tokens are bound to a daily HMAC of the client IP; raw IPs are not stored by the application. Reverse proxies may maintain their own logs.
 
-Video titles and job records expire with their files. Preview metadata is in memory for up to 15 minutes. One job ID is saved in browser session storage to recover after refresh; it is cleared when the user starts another video. Thumbnails are requested directly from YouTube's image host after a video lookup.
+Video titles and job records expire with their files. Preview metadata is kept in Redis for 15 minutes on Vercel and in memory locally. One job ID is saved in browser session storage to recover after refresh; it is cleared when the user starts another video. Thumbnails are requested directly from YouTube's image host after a video lookup.
 
 ## Verification
 

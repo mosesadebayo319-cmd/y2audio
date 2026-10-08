@@ -7,7 +7,7 @@ const elements = {
   cancel: $('#cancel-button'), restart: $('#restart-button'), expiry: $('#expiry-note'), icon: $('#job-icon'),
 };
 const apiBase = (window.Y2AUDIO_CONFIG?.apiBase || '').replace(/\/$/, '');
-let format = 'mp3', preview = null, job = null, busy = false, timer, expiryTimer, pollFailures = 0;
+let format = 'mp3', preview = null, job = null, busy = false, timer, expiryTimer, pollFailures = 0, runnerInFlight = false, lastRunAt = 0;
 const offlineMessage = 'Conversions aren’t connected in this preview yet. Please come back once the service is live.';
 
 function videoId(value) {
@@ -30,7 +30,7 @@ async function api(path, options = {}) {
   try {
     response = await fetch(`${apiBase}/api${path}`, {
       ...options, headers: { Accept: 'application/json', ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
-      signal: AbortSignal.timeout(path === '/preview' ? 50000 : 12000), cache: 'no-store',
+      signal: AbortSignal.timeout(path === '/preview' ? 50000 : path === '/jobs/run' ? 285000 : 12000), cache: 'no-store',
     });
   } catch (error) {
     throw new Error(error.name === 'TimeoutError' ? 'This is taking longer than expected. Please try again in a moment.' : 'We couldn’t reach the converter. Check your connection and try again.');
@@ -140,7 +140,7 @@ elements.form.addEventListener('submit', async (event) => {
       try { sessionStorage.setItem('y2audio.job', job.id); } catch { /* Storage may be disabled. */ }
       elements.form.hidden = true;
       elements.panel.hidden = false;
-      renderJob(job); schedulePoll();
+      renderJob(job); pokeRunner(job.id); schedulePoll();
     }
   } catch (error) {
     showError(error.message);
@@ -199,22 +199,28 @@ function updateExpiry() {
   if (!seconds) renderJob({ ...job, status: 'expired' });
 }
 function schedulePoll(delay = 1600) { clearTimeout(timer); timer = setTimeout(poll, delay); }
+async function pokeRunner(jobId) {
+  if (runnerInFlight || Date.now() - lastRunAt < 5000) return;
+  runnerInFlight = true; lastRunAt = Date.now();
+  try { await api('/jobs/run', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }); }
+  catch { /* Status polling will retry the runner if the request could not start. */ }
+  finally { runnerInFlight = false; }
+}
 async function poll() {
   if (!job) return;
   try {
     const next = await api(`/jobs/${encodeURIComponent(job.id)}`);
     pollFailures = 0; renderJob(next);
-    if (['queued', 'downloading', 'processing'].includes(next.status)) schedulePoll();
+    if (['queued', 'downloading', 'processing'].includes(next.status)) {
+      if (next.status === 'queued' || Date.now() - lastRunAt > 30000) pokeRunner(next.id);
+      schedulePoll();
+    }
   } catch (error) {
     if ([404, 410].includes(error.status)) { renderJob({ ...job, status: 'expired' }); return; }
     pollFailures += 1;
     elements.description.textContent = 'Connection interrupted. Reconnecting to check your conversion…';
-    if (pollFailures < 12) schedulePoll(5000);
-    else {
-      elements.description.textContent = 'We couldn’t reconnect. Reload this page to check the same conversion again.';
-      elements.progress.hidden = true;
-      elements.cancel.hidden = true;
-    }
+    elements.description.textContent = 'Connection interrupted. Reconnecting to check your conversion…';
+    schedulePoll(pollFailures < 12 ? 5000 : 15000);
   }
 }
 elements.cancel.addEventListener('click', async () => {
@@ -248,7 +254,7 @@ async function start() {
       const existing = await api(`/jobs/${encodeURIComponent(saved)}`);
       elements.form.hidden = true; elements.panel.hidden = false;
       renderJob(existing);
-      if (['queued', 'downloading', 'processing'].includes(existing.status)) schedulePoll();
+      if (['queued', 'downloading', 'processing'].includes(existing.status)) { pokeRunner(existing.id); schedulePoll(); }
     } catch { try { sessionStorage.removeItem('y2audio.job'); } catch { /* Optional storage. */ } }
   }
 }

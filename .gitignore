@@ -4,6 +4,9 @@ __pycache__/
 .runtime/
 .env
 node_modules/
+vendor/
 artifacts/
 *.tar.gz
 .DS_Store
+.vercel
+.env*

@@ -1,6 +1,7 @@
 """Bounded subprocess-based YouTube extraction and conversion."""
 import asyncio
 import json
+import logging
 import os
 import re
 import signal
@@ -8,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+log = logging.getLogger("y2audio.engine")
 
 
 class ConversionError(Exception):
@@ -117,7 +120,9 @@ class MediaEngine:
                 await asyncio.sleep(0.15)
             await asyncio.gather(*readers)
             if process.returncode:
-                raise public_error(errors.decode("utf-8", errors="replace"))
+                details = errors.decode("utf-8", errors="replace")
+                log.warning("yt-dlp exited %s: %s", process.returncode, details[:1200])
+                raise public_error(details)
             return output.decode("utf-8", errors="replace")
         finally:
             # Killing the process group also stops ffmpeg children on timeout/cancel.
